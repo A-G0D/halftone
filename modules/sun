@@ -1,0 +1,27 @@
+#!/bin/sh
+# about: Sunrise, sunset and day length where you are (located by IP, or HALFTONE_LATLON="37.8,-122.4")
+# group: Life
+# Location: https://ipwho.is/?fields=latitude,longitude,city (verified, https, no key). Times: https://api.open-meteo.com/v1/forecast?daily=sunrise,sunset,daylight_duration&timezone=auto
+echo "title: Sun"; echo "every: 1800"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+cache="${TMPDIR:-/tmp}/halftone-geo"
+if [ -n "$HALFTONE_LATLON" ]; then lat=${HALFTONE_LATLON%%,*}; lon=${HALFTONE_LATLON#*,}; city=""
+else
+  if [ -z "$(find "$cache" -mtime -1 2>/dev/null)" ]; then
+    curl -sf -m 6 "https://ipwho.is/?fields=latitude,longitude,city" | tr -d ' \n' > "$cache.new" && mv "$cache.new" "$cache"
+  fi
+  g=$(cat "$cache" 2>/dev/null)
+  lat=$(printf %s "$g" | sed -n 's/.*"latitude":\(-*[0-9.]*\).*/\1/p'); lon=$(printf %s "$g" | sed -n 's/.*"longitude":\(-*[0-9.]*\).*/\1/p')
+  city=$(printf %s "$g" | sed -n 's/.*"city":"\([^"]*\)".*/\1/p')
+fi
+[ -z "$lat" ] || [ -z "$lon" ] && { echo "text: can't locate you, set HALFTONE_LATLON=\"lat,lon\""; exit 0; }
+j=$(curl -sf -m 8 "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&daily=sunrise,sunset,daylight_duration&timezone=auto&forecast_days=1") || { echo "error: open-meteo unreachable"; exit 0; }
+rise=$(printf %s "$j" | sed -n 's/.*"sunrise":\["[0-9-]*T\([0-9:]*\)".*/\1/p')
+set_=$(printf %s "$j" | sed -n 's/.*"sunset":\["[0-9-]*T\([0-9:]*\)".*/\1/p')
+dur=$(printf %s "$j" | sed -n 's/.*"daylight_duration":\[\([0-9]*\).*/\1/p')
+[ -z "$rise" ] && { echo "text: no sun data for this location today"; exit 0; }
+[ -n "$city" ] && echo "text: $city"
+echo "row: sunrise | $rise | warn"
+echo "row: sunset | $set_ | accent"
+echo "row: daylight | $((dur/3600))h $((dur%3600/60))m | muted"
+exit 0

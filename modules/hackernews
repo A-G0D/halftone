@@ -1,0 +1,16 @@
+#!/bin/sh
+# about: Top Hacker News stories
+# group: News
+# Official HN API: https://hacker-news.firebaseio.com/v0/topstories.json and /v0/item/<id>.json
+echo "title: Hacker News"; echo "every: 600"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+ids=$(curl -sf -m 8 https://hacker-news.firebaseio.com/v0/topstories.json) || { echo "error: hacker news unreachable"; exit 0; }
+echo "open: https://news.ycombinator.com"
+for id in $(echo "$ids" | tr -d '[]' | tr ',' ' ' | cut -d' ' -f1-12); do
+  j=$(curl -sf -m 6 "https://hacker-news.firebaseio.com/v0/item/$id.json") || continue
+  title=$(printf %s "$j" | sed -n 's/.*"title":"\(.*\)","type".*/\1/p' | sed 's/\\"/"/g;s/\\u[0-9a-fA-F]*//g;s/|/\//g')
+  url=$(printf %s "$j" | sed -n 's/.*"url":"\([^"]*\)".*/\1/p' | sed 's/\\\//\//g')
+  score=$(printf %s "$j" | sed -n 's/.*"score":\([0-9]*\).*/\1/p')
+  talk=$(printf %s "$j" | sed -n 's/.*"descendants":\([0-9]*\).*/\1/p')
+  echo "link: $title | ${url:-https://news.ycombinator.com/item?id=$id} | ${score:-0} pts · ${talk:-0}"
+done

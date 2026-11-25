@@ -1,0 +1,33 @@
+#!/bin/sh
+# about: Latest GitHub Actions run per repo you pushed to this week
+# group: Dev
+# gh repo list --json pushedAt + gh run list --json (https://cli.github.com/manual/gh_run_list); uses your existing `gh auth login`.
+echo "title: CI"; echo "every: 120"
+command -v gh >/dev/null || { echo "text: needs the GitHub CLI (brew install gh) and gh auth login"; exit 0; }
+gh auth status >/dev/null 2>&1 || { echo "text: run gh auth login to see CI runs"; exit 0; }
+since=$(date -u -v-7d +%F 2>/dev/null || date -u -d '7 days ago' +%F)
+repos=$(gh repo list --limit 30 --json nameWithOwner,pushedAt --jq ".[]|select(.pushedAt>\"$since\")|.nameWithOwner" 2>/dev/null | head -8)
+[ -z "$repos" ] && { echo "text: no repos pushed in the last 7 days"; exit 0; }
+d=$(mktemp -d); i=0
+for r in $repos; do
+  i=$((i+1))
+  gh run list -R "$r" -L 1 --json status,conclusion,workflowName,headBranch,url --jq '.[]|[.status,.conclusion,.workflowName,.headBranch,.url]|join("|")' > "$d/$i" 2>/dev/null &
+done
+wait
+i=0; n=0; out=""; open=""
+for r in $repos; do
+  i=$((i+1)); line=$(cat "$d/$i" 2>/dev/null); [ -z "$line" ] && continue
+  st=${line%%|*}; rest=${line#*|}; con=${rest%%|*}; rest=${rest#*|}; wf=${rest%%|*}; rest=${rest#*|}; br=${rest%%|*}; url=${rest#*|}
+  case "$st/$con" in
+    completed/success) t=good; s=passing;;
+    completed/failure|completed/timed_out|completed/startup_failure) t=bad; s=failing; open=$url;;
+    completed/*) t=muted; s=$con;;
+    *) t=warn; s=$st;;
+  esac
+  out="$out
+row: ${r#*/} · $br | $s | $t"; n=$((n+1)); [ -z "$open" ] && open=$url
+done
+rm -rf "$d"
+[ -n "$open" ] && echo "open: $open"
+if [ $n -eq 0 ]; then echo "text: recent repos have no Actions runs"; else printf %s "$out" | sed 1d; echo; fi
+exit 0

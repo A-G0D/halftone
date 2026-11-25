@@ -1,0 +1,16 @@
+#!/bin/sh
+# about: Claude Code activity today: sessions touched and output tokens
+# group: Dev
+# Reads ${CLAUDE_CONFIG_DIR:-~/.claude}/projects/**/*.jsonl modified since midnight; each assistant message id repeats per content block, so keep the max output_tokens per id.
+echo "title: Claude today"; echo "every: 60"
+dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
+[ -d "$dir" ] || { echo "text: no Claude Code history at $dir"; exit 0; }
+files=$(find "$dir" -name '*.jsonl' -newermt "$(date +%Y-%m-%d)" 2>/dev/null)
+[ -z "$files" ] && { echo "big: 0 sessions"; echo "text: nothing yet today"; exit 0; }
+n=$(printf '%s\n' "$files" | wc -l | tr -d ' ')
+stats=$(printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 grep -ho '"id":"msg_[A-Za-z0-9]*"\|"output_tokens":[0-9]*' 2>/dev/null | awk -F'[:"]+' '
+  /msg_/ {cur=$3; seen[cur]=1; next} /output_tokens/ { if(cur!="" && $3+0>m[cur]) m[cur]=$3+0 } END{for(k in m) s+=m[k]; for(k in seen) c++; print s+0, c+0}')
+tok=${stats% *}; msgs=${stats#* }
+echo "big: $n sessions"
+echo "row: output tokens | $(awk -v n="$tok" 'BEGIN{ if(n>=1e6) printf "%.2fM",n/1e6; else if(n>=1e3) printf "%.1fk",n/1e3; else print n }') | accent"
+echo "row: messages | $msgs | muted"

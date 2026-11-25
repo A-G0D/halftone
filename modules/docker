@@ -1,0 +1,9 @@
+#!/bin/sh
+# about: Running Docker containers and their status
+# group: Dev
+# Running containers: docker ps --format '{{.Names}}|{{.Status}}'.
+echo "title: Docker"; echo "every: 15"
+command -v docker >/dev/null || { echo "text: needs docker · brew install --cask docker"; exit 0; }
+out=$(docker ps --format '{{.Names}}|{{.Status}}' 2>/dev/null) || { echo "text: docker is not running"; exit 0; }
+[ -z "$out" ] && { echo "text: no containers running"; exit 0; }
+echo "$out" | head -10 | while IFS='|' read -r n s; do echo "row: $n | $s | good"; done

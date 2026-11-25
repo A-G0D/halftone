@@ -1,0 +1,42 @@
+# 2026-11-24 Darwin arm64 Apple M5 Pro
+image,stage,mpix_per_s
+met_landscape,decode,135.8
+met_landscape,half,289.5
+met_landscape,quad,57.4
+met_landscape,braille_none,103.6
+met_landscape,braille_bayer,172.0
+met_landscape,braille_floyd,161.9
+met_landscape,blocks_bayer,166.9
+met_landscape,ascii_floyd,287.0
+portrait_painting,decode,109.7
+portrait_painting,half,356.6
+portrait_painting,quad,246.1
+portrait_painting,braille_none,330.1
+portrait_painting,braille_bayer,342.5
+portrait_painting,braille_floyd,306.2
+portrait_painting,blocks_bayer,511.9
+portrait_painting,ascii_floyd,540.7
+urbino,decode,122.9
+urbino,half,370.8
+urbino,quad,398.1
+urbino,braille_none,451.9
+urbino,braille_bayer,366.0
+urbino,braille_floyd,203.4
+urbino,blocks_bayer,438.6
+urbino,ascii_floyd,308.4
+image,method,psnr_db,mpix_per_s
+met_landscape,halftone braille bayer,24.36,
+met_landscape,numpy bayer4x4,24.36,33.8
+met_landscape,halftone braille floyd,29.91,
+met_landscape,Pillow convert('1') floyd,29.90,39.7
+met_landscape,halftone braille none,11.90,
+portrait_painting,halftone braille bayer,25.58,
+portrait_painting,numpy bayer4x4,25.58,29.6
+portrait_painting,halftone braille floyd,29.54,
+portrait_painting,Pillow convert('1') floyd,29.36,32.9
+portrait_painting,halftone braille none,10.07,
+urbino,halftone braille bayer,27.13,
+urbino,numpy bayer4x4,27.13,24.0
+urbino,halftone braille floyd,30.94,
+urbino,Pillow convert('1') floyd,31.01,3.5
+urbino,halftone braille none,11.38,

@@ -1,0 +1,29 @@
+#!/bin/sh
+# about: Gmail unread count and latest unread subjects over IMAP (app password, no Mail app)
+# group: Mail & calendar
+# Gmail IMAP via curl: imaps://imap.gmail.com/INBOX with -X "SEARCH UNSEEN" then -X "FETCH <ids> BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"
+# (PEEK so nothing gets marked read). Secret "gmail" = "you@example.com app-password"; create one at https://myaccount.google.com/apppasswords
+# Credentials reach curl via a config on stdin (-K -), never argv.
+echo "title: Gmail"; echo "every: 180"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+sec=$("${HALFTONE:-halftone}" secret get gmail 2>/dev/null) || sec=""
+case $sec in *@*" "*) ;; *) echo "connect: gmail | https://myaccount.google.com/apppasswords | you@example.com app-password"; exit 0;; esac
+u=${sec%% *}; p=$(printf %s "${sec#* }" | tr -d ' "\\')
+imap() { printf 'user = "%s:%s"\n' "$u" "$p" | curl -sS -m 8 -K - "imaps://imap.gmail.com/INBOX" -X "$1" 2>&1 | tr -d '\r'; }
+s=$(imap "SEARCH UNSEEN")
+case $s in
+  *"* SEARCH"*) ;;
+  *"login"*|*"LOGIN"*|*"AUTHENTICATIONFAILED"*|*"denied"*) echo "error: Gmail rejected the login · make a new app password"; exit 0;;
+  *) echo "error: Gmail unreachable"; exit 0;;
+esac
+ids=$(printf '%s\n' "$s" | sed -n 's/^\* SEARCH *//p')
+n=$(printf '%s\n' $ids | grep -c .)
+echo "open: https://mail.google.com"
+echo "big: $n unread"
+[ "$n" = 0 ] && exit 0
+set=$(printf '%s\n' $ids | tail -6 | tr '\n' ',' | sed 's/,$//')
+imap "FETCH $set BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]" | awk '
+  /^From:/ { f=$0; sub(/^From: */,"",f); sub(/ *<.*/,"",f); gsub(/"/,"",f) }
+  /^Subject:/ { s=$0; sub(/^Subject: */,"",s); l[++k]="text: " f " · " s }
+  END { for (i=k;i>0;i--) print l[i] }'
+exit 0

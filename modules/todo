@@ -1,0 +1,13 @@
+#!/bin/sh
+# about: Open checkboxes from your todo.md
+# group: System
+# Unchecked "- [ ]" items from ~/.config/halftone/todo.md (created with an example if missing).
+f="$HOME/.config/halftone/todo.md"
+echo "title: Todo"; echo "every: 10"
+[ -f "$f" ] || { mkdir -p "$HOME/.config/halftone"; printf '# todo\n- [ ] edit ~/.config/halftone/todo.md\n- [ ] ask Claude to add a module\n- [x] install halftone\n' > "$f"; }
+echo "open: open '$f'"
+n=$(grep -c '^[[:space:]]*- \[ \]' "$f")
+[ "$n" -eq 0 ] && { echo "text: all done"; exit 0; }
+echo "big: $n to do"
+grep '^[[:space:]]*- \[ \]' "$f" | sed 's/^[[:space:]]*- \[ \] *//' | head -8 | sed 's/^/text: · /'
+exit 0

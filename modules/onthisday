@@ -1,0 +1,12 @@
+#!/bin/sh
+# about: What happened on this date in history (Wikipedia)
+# group: News
+# https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/selected/MM/DD (verified: JSON with "text" and "year" per event, newest first)
+echo "title: On this day"; echo "every: 3600"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+mm=$(date +%m); dd=$(date +%d); page="$(LC_ALL=C date +%B)_$(echo "$dd" | sed 's/^0//')"
+echo "open: https://en.wikipedia.org/wiki/$page"
+j=$(curl -sf -m 8 -A "halftone/1" "https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/selected/$mm/$dd") || { echo "text: Wikipedia unreachable"; exit 0; }
+printf %s "$j" | grep -oE '"(text":"([^"\\]|\\.)+"|year":-?[0-9]+)' | sed 's/^"text":"//; s/"$//; s/^"year"://; s/\\"/"/g; s/\\u[0-9a-fA-F]*//g; s/|/\//g' | awk '
+  NR%2==1 {t=$0; next} {print "link: " $0 " · " t " | https://en.wikipedia.org/wiki/'"$page"'"}' | head -6
+exit 0

@@ -1,0 +1,21 @@
+#!/bin/sh
+# about: Weekly npm downloads for your packages ($HALFTONE_NPM, or whatever `npm whoami` maintains)
+# group: Dev
+# https://api.npmjs.org/downloads/point/last-week/<pkg> and https://registry.npmjs.org/-/v1/search?text=maintainer:<user> (its downloads.weekly field)
+echo "title: npm"; echo "every: 900"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+fmt() { awk -v n="$1" 'BEGIN{ if(n>=1e6) printf "%.1fM",n/1e6; else if(n>=1e3) printf "%.1fk",n/1e3; else printf "%d",n }'; }
+if [ -n "$HALFTONE_NPM" ]; then
+  for p in $HALFTONE_NPM; do
+    n=$(curl -sf -m 6 "https://api.npmjs.org/downloads/point/last-week/$p" | sed -n 's/.*"downloads":\([0-9]*\).*/\1/p')
+    echo "link: $p | https://www.npmjs.com/package/$p | $(fmt "${n:-0}") / week"
+  done
+  exit 0
+fi
+u=$(npm whoami 2>/dev/null) || u=""
+[ -z "$u" ] && { echo "text: run npm login, or set HALFTONE_NPM=\"pkg1 pkg2\""; exit 0; }
+echo "open: https://www.npmjs.com/~$u"
+curl -sf -m 8 "https://registry.npmjs.org/-/v1/search?text=maintainer:$u&size=15" | sed 's/{"downloads"/\
+&/g' | sed -n 's/^{"downloads":{[^}]*"weekly":\([0-9]*\)}.*"package":{"name":"\([^"]*\)".*/\1 \2/p' | sort -rn | head -12 | while read -r w p; do
+  echo "link: $p | https://www.npmjs.com/package/$p | $(fmt "$w") / week"
+done

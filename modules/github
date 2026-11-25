@@ -1,0 +1,18 @@
+#!/bin/sh
+# about: Review requests, your PRs and notifications (gh CLI)
+# group: Dev
+# GitHub via the gh CLI: gh search prs --review-requested=@me / --author=@me, gh api notifications.
+echo "title: GitHub"; echo "every: 120"
+command -v gh >/dev/null || { echo "text: needs gh · brew install gh"; exit 0; }
+gh auth status >/dev/null 2>&1 || { echo "text: not signed in · gh auth login"; exit 0; }
+n=$(gh api notifications --jq length 2>/dev/null)
+t=muted; [ "${n:-0}" -gt 0 ] && t=accent
+echo "row: Unread notifications | ${n:-?} | $t"
+echo "open: https://github.com/notifications"
+for kind in "--review-requested=@me|Waiting on your review" "--author=@me|Your open pull requests"; do
+  echo "head: ${kind#*|}"
+  l=$(gh search prs "${kind%%|*}" --state=open --limit 6 --json title,url,repository,updatedAt --jq '.[]|[.repository.name,.title,.url,(.updatedAt[5:10])]|@tsv' 2>/dev/null)
+  [ -z "$l" ] && echo "text: none"
+  printf '%s\n' "$l" | while IFS='	' read -r repo title url when; do [ -n "$url" ] && echo "link: $repo · $title | $url | $when"; done
+done
+exit 0

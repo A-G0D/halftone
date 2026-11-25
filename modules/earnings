@@ -1,0 +1,26 @@
+#!/bin/sh
+# about: Biggest companies reporting earnings today (or the next day with reports)
+# group: Finance
+# Nasdaq public calendar, no key: https://api.nasdaq.com/api/calendar/earnings?date=YYYY-MM-DD (needs a browser User-Agent)
+echo "title: Earnings"; echo "every: 3600"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+n=0
+while [ $n -lt 5 ]; do
+  day=$(date -v+${n}d +%Y-%m-%d 2>/dev/null || date -d "+$n day" +%Y-%m-%d 2>/dev/null) || break
+  j=$(curl -sf -m 4 -A Mozilla/5.0 "https://api.nasdaq.com/api/calendar/earnings?date=$day") || { echo "error: nasdaq unreachable"; exit 0; }
+  case $j in *'"symbol"'*) break;; esac
+  n=$((n+1))
+done
+case $j in *'"symbol"'*) ;; *) echo "text: no earnings in the next few days"; exit 0;; esac
+echo "open: https://www.nasdaq.com/market-activity/earnings"
+echo "text: reporting $day (biggest by market cap)"
+printf %s "$j" | sed 's/.*"rows":\[//; s/\].*//; s/},{/}\
+{/g' | while IFS= read -r r; do
+  s=$(printf %s "$r" | sed -n 's/.*"symbol":"\([^"]*\)".*/\1/p')
+  nm=$(printf %s "$r" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')
+  m=$(printf %s "$r" | sed -n 's/.*"marketCap":"\([^"]*\)".*/\1/p' | tr -dc 0-9)
+  t=$(printf %s "$r" | sed -n 's/.*"time":"time-\([^"]*\)".*/\1/p')
+  case $t in after-hours) t="after close";; pre-market) t="before open";; *) t="time tbd";; esac
+  [ -n "$s" ] && echo "${m:-0}|$s|$nm|$t"
+done | sort -t'|' -rn | head -8 | awk -F'|' '{printf "row: %s · %s | %s | accent\n", $2, substr($3,1,24), $4}'
+exit 0

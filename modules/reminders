@@ -1,0 +1,30 @@
+#!/bin/sh
+# about: Overdue and due-today reminders from Reminders.app (no password)
+# group: Mail & calendar
+# AppleScript on Reminders.app: `reminders whose completed is false and due date < tomorrow`.
+# macOS asks once for Automation permission (System Settings > Privacy > Automation).
+echo "title: Reminders"; echo "every: 300"
+[ "$(uname)" = Darwin ] || { echo "text: macOS only"; exit 0; }
+echo "open: open -a Reminders"
+out=$(osascript 2>&1 <<'EOF'
+set d1 to current date
+set time of d1 to 0
+set d2 to d1 + days
+set res to ""
+tell application "Reminders"
+  repeat with r in (every reminder whose completed is false and due date < d2)
+    set dd to due date of r
+    set k to "O"
+    if dd >= d1 then set k to "T"
+    set res to res & k & "|" & name of r & linefeed
+  end repeat
+end tell
+return res
+EOF
+) || { case $out in *-1743*|*"not allowed"*) echo "text: allow Automation for Reminders in System Settings > Privacy";; *) echo "text: Reminders not responding";; esac; exit 0; }
+o=$(printf '%s\n' "$out" | grep -c '^O|'); t=$(printf '%s\n' "$out" | grep -c '^T|')
+[ $((o+t)) = 0 ] && { echo "big: all clear"; echo "text: nothing overdue or due today"; exit 0; }
+echo "big: $((o+t)) due"
+printf '%s\n' "$out" | grep '^O|' | head -5 | awk -F'|' '{printf "row: %s | overdue | bad\n", $2}'
+printf '%s\n' "$out" | grep '^T|' | head -6 | awk -F'|' '{printf "row: %s | today | accent\n", $2}'
+exit 0

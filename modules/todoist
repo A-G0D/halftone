@@ -1,0 +1,19 @@
+#!/bin/sh
+# about: Todoist tasks due today or overdue
+# group: Life
+# API v1 (REST v2 is deprecated, verified): GET https://api.todoist.com/api/v1/tasks/filter?query=today | overdue, Bearer token.
+# Token: https://app.todoist.com/app/settings/integrations/developer. Response shape follows the docs; verified up to the 401 only.
+echo "title: Todoist"; echo "every: 120"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+tok=$("${HALFTONE:-halftone}" secret get todoist 2>/dev/null) || tok=""
+[ -z "$tok" ] && { echo "connect: todoist | https://app.todoist.com/app/settings/integrations/developer | Paste your API token"; exit 0; }
+echo "open: https://app.todoist.com/app/today"
+j=$(curl -s -m 8 -H "Authorization: Bearer $tok" "https://api.todoist.com/api/v1/tasks/filter?query=today%20%7C%20overdue") || { echo "error: Todoist unreachable"; exit 0; }
+case "$j" in *'"results"'*) ;; *) echo "error: Todoist rejected the token, run halftone connect again"; exit 0;; esac
+today=$(date +%F)
+printf %s "$j" | grep -oE '"(content":"([^"\\]|\\.)*"|due":(null|\{"date":"[0-9-]*))' | awk -v today="$today" '
+  function out() { t = (d < today) ? "bad" : "accent"; printf "row: %s | %s | %s\n", c, (d < today ? "overdue " d : "today"), t; c=""; d=""; n++ }
+  /^"content/ { c=$0; sub(/^"content":"/,"",c); sub(/"$/,"",c); gsub(/\\"/,"\"",c); gsub(/\|/,"/",c); if (d != "") out(); next }
+  /^"due/ { d=$0; sub(/.*"date":"/,"",d); if ($0 ~ /null/) d=today; if (c != "") out() }
+  END { if (!n) print "text: nothing due, enjoy" }' | head -12
+exit 0

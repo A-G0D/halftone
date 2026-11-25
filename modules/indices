@@ -1,0 +1,19 @@
+#!/bin/sh
+# about: US stock indices: S&P 500, Nasdaq, Dow, Russell 2000, VIX
+# group: Finance
+# Yahoo chart API, no key: https://query1.finance.yahoo.com/v8/finance/chart/<SYM>?interval=5m&range=1d
+echo "title: Indices"; echo "every: 60"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+L="^GSPC:S&P_500 ^IXIC:Nasdaq ^DJI:Dow ^RUT:Russell_2000 ^VIX:VIX"
+d=$(mktemp -d) || exit 0; trap 'rm -rf "$d"' EXIT
+i=0; for p in $L; do i=$((i+1))
+  ( curl -sf -m 6 -A Mozilla/5.0 "https://query1.finance.yahoo.com/v8/finance/chart/${p%%:*}?interval=5m&range=1d" |
+    sed -n 's/.*"regularMarketPrice":\([0-9.]*\).*"chartPreviousClose":\([0-9.]*\).*/\1 \2/p' > "$d/$i" ) &
+done; wait
+echo "open: https://finance.yahoo.com"
+i=0; ok=0; for p in $L; do i=$((i+1))
+  v=$(cat "$d/$i" 2>/dev/null); [ -z "$v" ] && continue; ok=1
+  echo "$v" | awk -v n="${p#*:}" '{c=$1-$2; printf "row: %s | %.2f  %+.2f%% | %s\n", n, $1, c/$2*100, ((c<0)!=(n=="VIX"))?"bad":"good"}' | tr _ ' '
+done
+[ $ok = 1 ] || echo "error: yahoo finance unreachable"
+exit 0

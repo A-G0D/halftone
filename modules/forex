@@ -1,0 +1,12 @@
+#!/bin/sh
+# about: USD exchange rates (EUR GBP JPY INR CAD CHF; set HALFTONE_FX="EUR,GBP" to change)
+# group: Finance
+# Frankfurter (ECB rates), no key: https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,GBP
+echo "title: Forex (USD)"; echo "every: 1800"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+fx=$(printf %s "${HALFTONE_FX:-EUR,GBP,JPY,INR,CAD,CHF}" | tr -d ' ' | tr a-z A-Z)
+j=$(curl -sf -m 8 "https://api.frankfurter.dev/v1/latest?base=USD&symbols=$fx") || { echo "error: frankfurter unreachable or bad HALFTONE_FX"; exit 0; }
+echo "open: https://www.frankfurter.app"
+echo "text: 1 USD = ... (ECB, $(printf %s "$j" | sed -n 's/.*"date":"\([^"]*\)".*/\1/p'))"
+printf %s "$j" | sed -n 's/.*"rates":{\([^}]*\)}.*/\1/p' | tr ',' '\n' | tr -d '"' | awk -F: '{printf "row: %s | %s | accent\n", $1, $2}'
+exit 0

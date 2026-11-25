@@ -1,0 +1,35 @@
+show 1 home
+key \t
+key \t
+key \t
+show 2 focus moved
+key \r
+wait 1
+show 3 enter opens detail
+key \e
+wait 1
+show 4 esc back
+key 2
+wait 3
+show 5 code tab
+key 1
+key \x0b
+key thm
+show 6 palette filtered
+key \e
+key e
+show 7 editor
+key l
+key \e
+wait 1
+show 8 layout saved
+key 6
+wait 2
+key \r
+wait 2
+show 9 shell open
+key \x00
+wait 5
+key \x00
+wait 10
+show 10 voice typed

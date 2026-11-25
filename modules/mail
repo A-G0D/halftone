@@ -1,0 +1,35 @@
+#!/bin/sh
+# about: Apple Mail unread count and latest unread messages (no password, uses Mail.app)
+# group: Mail & calendar
+# AppleScript on Mail.app: `unread count of inbox`, newest 40 inbox messages filtered by read status.
+# macOS asks once for Automation permission (System Settings > Privacy > Automation).
+echo "title: Mail"; echo "every: 120"
+[ "$(uname)" = Darwin ] || { echo "text: macOS only"; exit 0; }
+pgrep -x Mail >/dev/null || { echo "text: Mail is closed"; echo "open: open -a Mail"; exit 0; }
+out=$(osascript 2>&1 <<'EOF'
+tell application "Mail"
+  set n to unread count of inbox
+  set res to (n as string)
+  set c to count of messages of inbox
+  if c > 40 then set c to 40
+  set k to 0
+  repeat with i from 1 to c
+    set m to message i of inbox
+    if read status of m is false then
+      set s to sender of m
+      if s contains "<" then set s to text 1 thru ((offset of "<" in s) - 1) of s
+      set res to res & linefeed & s & " · " & subject of m
+      set k to k + 1
+      if k is 8 then exit repeat
+    end if
+  end repeat
+  return res
+end tell
+EOF
+) || { case $out in *-1743*|*"not allowed"*) echo "text: allow Automation for Mail in System Settings > Privacy";; *) echo "text: Mail not responding";; esac; exit 0; }
+echo "open: open -a Mail"
+n=$(printf %s "$out" | head -1)
+t=muted; [ "${n:-0}" -gt 0 ] 2>/dev/null && t=accent
+echo "big: $n unread"
+printf %s "$out" | tail -n +2 | while IFS= read -r l; do [ -n "$l" ] && echo "text: $l"; done
+exit 0

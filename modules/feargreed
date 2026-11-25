@@ -1,0 +1,18 @@
+#!/bin/sh
+# about: Crypto Fear & Greed index with a 7-day sparkline
+# group: Finance
+# alternative.me, no key: https://api.alternative.me/fng/?limit=7 (newest first)
+echo "title: Fear & Greed"; echo "every: 1800"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+j=$(curl -sf -m 8 'https://api.alternative.me/fng/?limit=7') || { echo "error: alternative.me unreachable"; exit 0; }
+v=$(printf %s "$j" | sed -n 's/.*"value": *"\([0-9]*\)".*/\1/p')
+[ -z "$v" ] && { echo "error: unexpected response"; exit 0; }
+cls=$(printf %s "$j" | sed -n 's/.*"value_classification": *"\([^"]*\)".*/\1/p' | head -1)
+now=$(echo "$v" | head -1)
+t=warn; [ "$now" -lt 40 ] && t=bad; [ "$now" -ge 60 ] && t=good
+echo "open: https://alternative.me/crypto/fear-and-greed-index/"
+echo "big: $now  $cls"
+echo "bar: index | $(echo "$now" | awk '{print $1/100}') | $t"
+echo "text: last 7 days (oldest to newest)"
+echo "spark: $(echo "$v" | sed '1!G;h;$!d' | tr '\n' ' ')"
+exit 0

@@ -1,0 +1,29 @@
+#!/bin/sh
+# about: Air quality index and PM2.5 where you are (located by IP, or HALFTONE_LATLON="37.8,-122.4")
+# group: Life
+# Location: https://ipwho.is/?fields=latitude,longitude,city (verified). Air: https://air-quality-api.open-meteo.com/v1/air-quality?current=us_aqi,pm2_5,pm10 (verified)
+echo "title: Air"; echo "every: 900"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+cache="${TMPDIR:-/tmp}/halftone-geo"
+if [ -n "$HALFTONE_LATLON" ]; then lat=${HALFTONE_LATLON%%,*}; lon=${HALFTONE_LATLON#*,}; city=""
+else
+  if [ -z "$(find "$cache" -mtime -1 2>/dev/null)" ]; then
+    curl -sf -m 6 "https://ipwho.is/?fields=latitude,longitude,city" | tr -d ' \n' > "$cache.new" && mv "$cache.new" "$cache"
+  fi
+  g=$(cat "$cache" 2>/dev/null)
+  lat=$(printf %s "$g" | sed -n 's/.*"latitude":\(-*[0-9.]*\).*/\1/p'); lon=$(printf %s "$g" | sed -n 's/.*"longitude":\(-*[0-9.]*\).*/\1/p')
+  city=$(printf %s "$g" | sed -n 's/.*"city":"\([^"]*\)".*/\1/p')
+fi
+[ -z "$lat" ] || [ -z "$lon" ] && { echo "text: can't locate you, set HALFTONE_LATLON=\"lat,lon\""; exit 0; }
+j=$(curl -sf -m 8 "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&current=us_aqi,pm2_5,pm10") || { echo "error: open-meteo unreachable"; exit 0; }
+c=$(printf %s "$j" | sed 's/.*"current":{//')
+aqi=$(printf %s "$c" | sed -n 's/.*"us_aqi":\([0-9]*\).*/\1/p')
+pm25=$(printf %s "$c" | sed -n 's/.*"pm2_5":\([0-9.]*\).*/\1/p')
+pm10=$(printf %s "$c" | sed -n 's/.*"pm10":\([0-9.]*\).*/\1/p')
+[ -z "$aqi" ] && { echo "text: no air data for this location"; exit 0; }
+if [ "$aqi" -le 50 ]; then t=good; w=Good; elif [ "$aqi" -le 100 ]; then t=warn; w=Moderate; elif [ "$aqi" -le 150 ]; then t=bad; w="Unhealthy for sensitive groups"; else t=bad; w=Unhealthy; fi
+echo "big: AQI $aqi"
+echo "row: $w | ${city:-here} | $t"
+echo "row: PM2.5 | $pm25 ug/m3 | muted"
+echo "row: PM10 | $pm10 ug/m3 | muted"
+exit 0

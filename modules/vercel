@@ -1,0 +1,15 @@
+#!/bin/sh
+# about: Recent Vercel deployments (needs the vercel CLI, already logged in)
+# group: Dev
+# `vercel ls` (https://vercel.com/docs/cli/list) prints a table: age, url, status, env, duration. Not installed here, so parsing is by column text.
+echo "title: Vercel"; echo "every: 120"
+command -v vercel >/dev/null || { echo "text: needs the Vercel CLI: npm i -g vercel, then vercel login"; exit 0; }
+out=$(vercel ls 2>&1 </dev/null) || { echo "text: run vercel login (and vercel link in a project) first"; exit 0; }
+echo "open: https://vercel.com/dashboard"
+printf %s "$out" | grep -o 'https://[^ ]*' | head -10 | while read -r u; do
+  line=$(printf %s "$out" | grep -F "$u" | head -1)
+  case "$line" in
+    *Ready*) t="ready";; *Error*) t="error";; *Building*|*Queued*) t="building";; *Canceled*) t="canceled";; *) t="";;
+  esac
+  echo "link: ${u#https://} | $u | $t"
+done

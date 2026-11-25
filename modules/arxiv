@@ -1,0 +1,16 @@
+#!/bin/sh
+# about: Newest arXiv papers in a category ($HALFTONE_ARXIV, default cs.AI)
+# group: News
+# https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate (Atom, verified; API terms ask for <= 1 request per 3 s)
+cat="${HALFTONE_ARXIV:-cs.AI}"
+echo "title: arXiv $cat"; echo "every: 1800"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+echo "open: https://arxiv.org/list/$cat/new"
+curl -sf -m 8 "https://export.arxiv.org/api/query?search_query=cat:$cat&sortBy=submittedDate&sortOrder=descending&max_results=10" | tr '\n\r' '  ' | sed 's/<entry>/\
+&/g' | awk '
+/^<entry>/ {
+  t=$0; if(!sub(/.*<title>/,"",t)) next; sub(/<\/title>.*/,"",t)
+  l=$0; if(!match(l,/<id>[^<]*<\/id>/)) next; l=substr(l,RSTART+4,RLENGTH-9)
+  gsub(/ +/," ",t); gsub(/\|/,"/",t); gsub(/&amp;/,"\\&",t); gsub(/&lt;/,"<",t); gsub(/&gt;/,">",t)
+  sub(/^http:/,"https:",l); print "link: " t " | " l }' | grep . || echo "text: arXiv unreachable or empty"
+exit 0

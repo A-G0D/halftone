@@ -1,0 +1,10 @@
+/target
+/dist
+/tapes/out
+.DS_Store
+/npm/out
+/.claude
+/tapes/modules
+/tapes/AGENTS.md
+/bench/images
+/bench/out

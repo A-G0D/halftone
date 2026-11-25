@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halftone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0a0c0f; color: #dfe3e8; }
+  #stage { box-sizing: border-box; height: 100%; padding: 16px; display: grid; place-items: center; overflow: hidden; }
+  canvas { display: block; outline: none; touch-action: none; }
+  canvas:focus-visible { outline: 1px solid #ffb454; outline-offset: 6px; }
+  #err { position: fixed; left: 16px; right: 16px; bottom: 16px; margin: 0; padding: 12px 14px; background: #1a1e25;
+    border-left: 2px solid #ff7b72; font: 13px/1.5 "JetBrains Mono", ui-monospace, monospace; white-space: pre-wrap;
+    max-height: 50vh; overflow: auto; }
+  #err:empty { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre; }
+</style>
+</head>
+<body>
+<main id="stage"><canvas tabindex="0" role="application" aria-label="Halftone app. Press Escape then Tab to leave."></canvas></main>
+<pre id="mirror" class="sr" aria-live="off"></pre>
+<pre id="err" role="alert"></pre>
+<script type="module">
+  import { boot } from './runtime.js';
+  const err = document.getElementById('err');
+  boot(document.querySelector('canvas'), window.HT_WASM || './app.wasm', {
+    mirror: document.getElementById('mirror'),
+    onError: (m) => (err.textContent = m),
+  }).catch((e) => (err.textContent = String(e)));
+</script>
+<!--LIVE-->
+</body>
+</html>

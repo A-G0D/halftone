@@ -1,0 +1,36 @@
+[package]
+name = "halftone-ui"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Write a TUI once: it runs in a real terminal and in the browser. Zero-dependency core; opt into the ratatui ecosystem and tachyonfx effects."
+
+[lib]
+name = "halftone"
+
+[[bin]]
+name = "halftone"
+path = "src/bin/halftone.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[features]
+# The whole ratatui widget ecosystem plus tachyonfx effects, drawn through `Frame::ratatui`.
+ratatui = ["dep:ratatui-core", "dep:ratatui-widgets", "dep:tachyonfx"]
+
+[dependencies]
+ratatui-core = { version = "0.1.2", optional = true }
+ratatui-widgets = { version = "0.3.2", optional = true }
+tachyonfx = { version = "0.25.1", optional = true, default-features = false, features = ["std", "dsl"] }
+
+[[example]]
+name = "widgets"
+required-features = ["ratatui"]
+
+[[bench]]
+name = "image"
+harness = false

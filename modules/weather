@@ -1,0 +1,18 @@
+#!/bin/sh
+# about: Current weather for your city (wttr.in, no key)
+# group: System
+# Weather from wttr.in (no key): https://wttr.in/?format=%l|%c|%t|%f|%h|%w. City: $HALFTONE_CITY or auto by IP.
+echo "title: Weather"; echo "every: 900"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+city=$(printf %s "${HALFTONE_CITY:-}" | sed 's/ /+/g')
+out=$(curl -sf -m 8 "https://wttr.in/$city?format=%l|%c|%t|%f|%h|%w") || { echo "error: wttr.in unreachable"; exit 0; }
+case $out in *Unknown*|*Sorry*|"") echo "error: no weather for '${HALFTONE_CITY:-here}'"; exit 0;; esac
+IFS='|' read -r loc icon temp feels hum wind <<END
+$out
+END
+echo "big: $icon $temp"
+echo "row: Place | $loc"
+echo "row: Feels like | $feels"
+echo "row: Humidity | $hum"
+echo "row: Wind | $wind"
+echo "open: https://wttr.in/$city"

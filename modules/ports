@@ -1,0 +1,10 @@
+#!/bin/sh
+# about: Dev servers listening on your machine
+# group: Dev
+# Listening dev servers: lsof -nP -iTCP -sTCP:LISTEN -F pcn (ports >= 1024), full command names.
+echo "title: Ports"; echo "every: 15"
+command -v lsof >/dev/null || { echo "text: needs lsof"; exit 0; }
+out=$(lsof -nP -iTCP -sTCP:LISTEN -F cn 2>/dev/null | awk '/^c/{c=substr($0,2)} /^n/{n=split($0,a,":");p=a[n]+0; if(p>=1024 && !s[p]++) print p "\t" c}' | sort -n | head -12 | while IFS='	' read -r port cmd; do
+  printf "link: %-7s %s | http://localhost:%s\n" ":$port" "$cmd" "$port"
+done)
+if [ -n "$out" ]; then echo "$out"; else echo "text: nothing listening"; fi

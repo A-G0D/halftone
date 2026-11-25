@@ -1,0 +1,18 @@
+#!/bin/sh
+# about: Outdated Homebrew formulae (cached for an hour, brew is slow)
+# group: System
+# `brew outdated --quiet` lists names of outdated formulae (https://docs.brew.sh/Manpage#outdated---formula---cask-options-formulacask-).
+echo "title: Brew"; echo "every: 600"
+command -v brew >/dev/null || { echo "text: Homebrew not installed"; exit 0; }
+cache="${TMPDIR:-/tmp}/halftone-brew"
+if [ -z "$(find "$cache" -mmin -60 2>/dev/null)" ]; then
+  HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --quiet > "$cache.new" 2>/dev/null && mv "$cache.new" "$cache"
+fi
+[ -f "$cache" ] || { echo "text: brew outdated failed"; exit 0; }
+n=$(wc -l < "$cache" | tr -d ' ')
+if [ "$n" -eq 0 ]; then echo "big: up to date"; exit 0; fi
+t=accent; [ "$n" -ge 10 ] && t=warn
+echo "big: $n outdated"
+head -10 "$cache" | while read -r f; do echo "row: $f | upgrade | $t"; done
+[ "$n" -gt 10 ] && echo "text: and $((n-10)) more"
+exit 0

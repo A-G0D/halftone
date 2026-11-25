@@ -1,0 +1,32 @@
+#!/bin/sh
+# about: YNAB this month: ready to assign, age of money, categories over budget
+# group: Finance
+# YNAB API v1 (https://api.ynab.com/v1#/Months/getBudgetMonth): GET /budgets/last-used/months/current, Bearer token.
+# Token: https://app.ynab.com/settings/developer (amounts are milliunits).
+echo "title: YNAB"; echo "every: 600"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+tok=$("${HALFTONE:-halftone}" secret get ynab 2>/dev/null) || tok=""
+[ -z "$tok" ] && { echo "connect: ynab | https://app.ynab.com/settings/developer | Personal access token"; exit 0; }
+# token goes through curl's stdin config, never argv
+j=$(printf 'header = "Authorization: Bearer %s"\n' "$tok" | curl -sS -m 8 -K - 'https://api.ynab.com/v1/budgets/last-used/months/current' 2>/dev/null)
+case $j in
+  *'"month"'*) ;;
+  *unauthorized*|*'"id":"401"'*) echo "error: YNAB rejected the token · reconnect"; exit 0;;
+  *) echo "error: YNAB unreachable"; exit 0;;
+esac
+echo "open: https://app.ynab.com"
+tbb=$(printf %s "$j" | sed -n 's/.*"to_be_budgeted":\(-*[0-9]*\).*/\1/p')
+age=$(printf %s "$j" | sed -n 's/.*"age_of_money":\([0-9]*\).*/\1/p')
+echo "$tbb" | awk '{t=($1<0)?"bad":"good"; printf "big: $%.2f to assign\n", $1/1000}'
+echo "row: age of money | ${age:-?} days | accent"
+echo "text: over budget this month"
+over=$(printf %s "$j" | sed 's/},{/}\
+{/g' | while IFS= read -r r; do
+  case $r in (*'"deleted":true'*|*'"hidden":true'*) continue;; esac
+  n=$(printf %s "$r" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')
+  b=$(printf %s "$r" | sed -n 's/.*"balance":\(-[0-9]*\).*/\1/p')
+  [ -n "$n" ] && [ -n "$b" ] && echo "$b|$n"
+done | sort -t'|' -n | head -5)
+[ -z "$over" ] && { echo "text: nothing overspent"; exit 0; }
+printf '%s\n' "$over" | awk -F'|' '{printf "row: %s | -$%.2f | bad\n", $2, -$1/1000}'
+exit 0

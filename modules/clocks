@@ -1,0 +1,9 @@
+#!/bin/sh
+# about: World clocks for the zones you pick
+# group: System
+# World clocks. Zones from $HALFTONE_ZONES (space separated TZ names), e.g. "America/New_York Europe/London Asia/Tokyo".
+echo "title: Clocks"; echo "every: 30"
+for z in ${HALFTONE_ZONES:-America/Los_Angeles America/New_York Europe/London Asia/Kolkata Asia/Tokyo}; do
+  t=$(TZ=$z date '+%a %H:%M' 2>/dev/null) && echo "row: ${z##*/} | $t" | sed 's/_/ /g'
+done
+exit 0

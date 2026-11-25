@@ -1,0 +1,20 @@
+#!/bin/sh
+# about: Your open Linear issues
+# group: Dev
+# GraphQL https://api.linear.app/graphql (verified: answers 401 without a key). Personal API key goes in the Authorization header with no Bearer prefix.
+# Key: https://linear.app/settings/account/security . Query follows the schema docs (User.assignedIssues); verified up to the 401 only.
+echo "title: Linear"; echo "every: 180"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+key=$("${HALFTONE:-halftone}" secret get linear 2>/dev/null) || key=""
+[ -z "$key" ] && { echo "connect: linear | https://linear.app/settings/account/security | Create a personal API key and paste it"; exit 0; }
+echo "open: https://linear.app/my-issues"
+q='{"query":"{ viewer { assignedIssues(first: 12, orderBy: updatedAt, filter: {state: {type: {nin: [\"completed\", \"canceled\"]}}}) { nodes { identifier title url state { name } } } } }"}'
+j=$(curl -s -m 8 -X POST https://api.linear.app/graphql -H "Authorization: $key" -H 'Content-Type: application/json' -d "$q") || { echo "error: Linear unreachable"; exit 0; }
+case "$j" in *'"nodes"'*) ;; *) echo "error: Linear rejected the key, run halftone connect again"; exit 0;; esac
+printf %s "$j" | grep -oE '"(identifier|title|url|name)":"([^"\\]|\\.)*"' | awk '
+  /^"identifier/ { id=$0; sub(/^"identifier":"/,"",id); sub(/"$/,"",id); next }
+  /^"title/ { t=$0; sub(/^"title":"/,"",t); sub(/"$/,"",t); gsub(/\\"/,"\"",t); gsub(/\|/,"/",t); next }
+  /^"url/ { u=$0; sub(/^"url":"/,"",u); sub(/"$/,"",u); gsub(/\\\//,"/",u); next }
+  /^"name/ { s=$0; sub(/^"name":"/,"",s); sub(/"$/,"",s); print "link: " id " " t " | " u " | " s; n++ }
+  END { if (!n) print "text: no open issues assigned to you" }'
+exit 0

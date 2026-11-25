@@ -1,0 +1,44 @@
+#!/bin/sh
+# about: Today's and tomorrow's events from Calendar.app (no password)
+# group: Mail & calendar
+# AppleScript on Calendar.app: `events of cal whose start date >= d1 and start date < d2` (today 00:00 to day after tomorrow).
+# macOS asks once for Automation permission (System Settings > Privacy > Automation).
+echo "title: Calendar"; echo "every: 300"
+[ "$(uname)" = Darwin ] || { echo "text: macOS only"; exit 0; }
+echo "open: open -a Calendar"
+out=$(osascript 2>&1 <<'EOF'
+set d1 to current date
+set time of d1 to 0
+set d2 to d1 + 2 * days
+set res to ""
+tell application "Calendar"
+  repeat with cal in calendars
+    try
+     if writable of cal then
+      repeat with e in (every event of cal whose start date >= d1 and start date < d2)
+        set s to start date of e
+        set dayn to "T"
+        if s >= d1 + days then set dayn to "N"
+        if allday event of e then
+          set tm to "all day"
+        else
+          set h to hours of s
+          set mi to minutes of s
+          set tm to text -2 thru -1 of ("0" & h) & ":" & text -2 thru -1 of ("0" & mi)
+        end if
+        set res to res & dayn & " " & tm & "|" & summary of e & linefeed
+      end repeat
+     end if
+    end try
+  end repeat
+end tell
+return res
+EOF
+) || { case $out in *-1743*|*"not allowed"*) echo "text: allow Automation for Calendar in System Settings > Privacy";; *) echo "text: Calendar not responding";; esac; exit 0; }
+for d in T:Today N:Tomorrow; do
+  echo "text: ${d#*:}"
+  l=$(printf '%s\n' "$out" | grep "^${d%%:*} " | sed 's/^. //' | sort | head -8)
+  [ -z "$l" ] && { echo "text: nothing"; continue; }
+  printf '%s\n' "$l" | awk -F'|' '{printf "row: %s | %s | accent\n", $2, $1}'
+done
+exit 0

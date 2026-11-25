@@ -1,0 +1,39 @@
+#!/bin/sh
+# about: Latest headlines from the feeds in ~/.config/halftone/feeds.txt (RSS or Atom)
+# group: News
+# One feed URL per line. Defaults verified 200 OK: blog.rust-lang.org/feed.xml, feeds.arstechnica.com/arstechnica/index, theverge.com/rss/index.xml
+echo "title: Feeds"; echo "every: 600"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+f="${XDG_CONFIG_HOME:-$HOME/.config}/halftone/feeds.txt"
+feed() { tr '\n\r\t' '   ' | sed 's/<item[ >]/\
+&/g; s/<entry[ >]/\
+&/g' | awk -v n="$1" '
+/^<(item|entry)[ >]/ && c<n {
+  t=$0; if(!sub(/.*<title[^>]*>/,"",t)) next; sub(/<\/title>.*/,"",t)
+  l=$0
+  if(match(l,/<link[^>]*href="[^"]*"/)){l=substr(l,RSTART,RLENGTH); sub(/.*href="/,"",l); sub(/"$/,"",l)}
+  else if(match(l,/<link>[^<]*<\/link>/)){l=substr(l,RSTART+6,RLENGTH-13)} else next
+  gsub(/<!\[CDATA\[|\]\]>/,"",t); gsub(/<!\[CDATA\[|\]\]>/,"",l)
+  gsub(/&#821[67];/,"\047",t); gsub(/&#822[01];/,"\"",t); gsub(/&#8211;|&#8212;/,"-",t); gsub(/&#[0-9]+;/,"",t)
+  gsub(/&lt;/,"<",t); gsub(/&gt;/,">",t); gsub(/&quot;/,"\"",t); gsub(/&#39;|&apos;/,"\047",t); gsub(/&amp;/,"\\&",t); gsub(/\|/,"/",t)
+  gsub(/&amp;/,"\\&",l); gsub(/^ +| +$/,"",t); gsub(/^ +| +$/,"",l)
+  c++; printf "%s\t%s\n", t, l }'; }
+if [ ! -f "$f" ]; then
+  mkdir -p "$(dirname "$f")" 2>/dev/null
+  printf '# one feed URL per line\nhttps://blog.rust-lang.org/feed.xml\nhttps://feeds.arstechnica.com/arstechnica/index\nhttps://www.theverge.com/rss/index.xml\n' > "$f" 2>/dev/null
+fi
+urls=$(grep -v '^[[:space:]]*#' "$f" 2>/dev/null | grep . | head -6)
+[ -z "$urls" ] && { echo "text: add feed URLs to $f"; exit 0; }
+cnt=$(printf '%s\n' "$urls" | wc -l); per=4; [ "$cnt" -gt 3 ] && per=2
+d=$(mktemp -d); i=0
+for u in $urls; do i=$((i+1)); (curl -sfL -m 7 -A halftone/1 "$u" > "$d/$i.x"; feed $per < "$d/$i.x" > "$d/$i" 2>/dev/null) & done
+wait
+i=0; tab=$(printf '\t')
+for u in $urls; do
+  i=$((i+1)); [ -s "$d/$i" ] || continue
+  h=$(tr '\n\r' '  ' < "$d/$i.x" | sed 's/<item[ >].*//; s/<entry[ >].*//; s/<!\[CDATA\[//g; s/\]\]>//g' | sed -n 's/.*<title[^>]*>\([^<]*\)<\/title>.*/\1/p')
+  [ -z "$h" ] && { h=${u#*://}; h=${h%%/*}; }
+  echo "head: $h"
+  while IFS="$tab" read -r t l; do echo "link: $t | $l"; done < "$d/$i"
+done
+rm -rf "$d"

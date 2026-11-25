@@ -1,0 +1,25 @@
+#!/bin/sh
+# about: Today's scores for leagues in $HALFTONE_LEAGUES (default "basketball/nba football/nfl")
+# group: Life
+# ESPN public scoreboard (unofficial, no key): https://site.api.espn.com/apis/site/v2/sports/<sport>/<league>/scoreboard, e.g. soccer/eng.1 hockey/nhl baseball/mlb
+echo "title: Scores"; echo "every: 60"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+for lg in ${HALFTONE_LEAGUES:-basketball/nba football/nfl}; do
+  j=$(curl -sf -m 6 "https://site.api.espn.com/apis/site/v2/sports/$lg/scoreboard") || { echo "text: $lg unreachable (format sport/league)"; continue; }
+  echo "head: ${lg#*/}"
+  # one event starts at a shortName like "AWAY @ HOME"; first pre|in|post state and following shortDetail are the status
+  printf %s "$j" | grep -oE '"(shortName":"[^"]* (@|VS) [^"]*|homeAway":"[a-z]*|abbreviation":"[^"]*|score":"[0-9]*|state":"(pre|in|post)|shortDetail":"[^"]*)"' | awk '
+    function flush() { if (name != "" && det != "") {
+        t = (st == "in") ? "good" : (st == "post") ? "muted" : "accent"
+        if (st == "pre") { as = ""; hs = "" }
+        printf "row: %s %s @ %s %s | %s | %s\n", aw, as, ho, hs, det, t } }
+    /^"shortName/ { flush(); split("",got); split("",sc); name=$0; st=""; det=""; side=""; as=hs="-"; aw=ho="?"; next }
+    /^"homeAway/ { side=$0; sub(/.*:"/,"",side); sub(/"$/,"",side); next }
+    /^"abbreviation/ { if (side != "" && !got[side]++) { a=$0; sub(/.*:"/,"",a); sub(/"$/,"",a); if (side=="home") ho=a; else aw=a } next }
+    /^"score/ { if (side != "" && !sc[side]++) { s=$0; sub(/.*:"/,"",s); sub(/"$/,"",s); if (side=="home") hs=s; else as=s } next }
+    /^"state/ { if (st=="") { st=$0; sub(/.*:"/,"",st); sub(/"$/,"",st) } next }
+    /^"shortDetail/ { if (det=="" && st!="") { det=$0; sub(/.*:"/,"",det); sub(/"$/,"",det) } next }
+    { }
+    END { flush() }' | head -8
+done
+exit 0

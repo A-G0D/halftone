@@ -1,0 +1,12 @@
+{
+  "name": "halftone-cli",
+  "version": "0.0.0",
+  "description": "Your desk, in a terminal: coding agents, live stock candles, Discord and Mail unreads, income and X in one full-screen view.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/A-G0D/halftone.git" },
+  "keywords": ["terminal", "tui", "dashboard", "claude-code", "cli"],
+  "bin": { "halftone": "bin/halftone.js" },
+  "files": ["bin/halftone.js"],
+  "engines": { "node": ">=18" },
+  "optionalDependencies": {}
+}

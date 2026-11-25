@@ -1,0 +1,14 @@
+#!/bin/sh
+# about: Bitcoin, Ethereum and Solana prices (CoinGecko, no key)
+# group: Finance
+# CoinGecko, no key: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true
+echo "title: Crypto"; echo "every: 120"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+j=$(curl -sf -m 8 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true') || { echo "error: coingecko unreachable or rate limited"; exit 0; }
+echo "open: https://www.coingecko.com"
+for p in bitcoin:BTC ethereum:ETH solana:SOL; do
+  id=${p%%:*}
+  v=$(printf %s "$j" | sed -n "s/.*\"$id\":{\"usd\":\([0-9.e+-]*\),\"usd_24h_change\":\([0-9.e+-]*\).*/\1 \2/p")
+  [ -z "$v" ] && continue
+  echo "$v" | awk -v s="${p#*:}" '{t=($2<0)?"bad":"good"; printf "row: %s | $%.2f  %+.1f%% | %s\n", s, $1, $2, t}'
+done

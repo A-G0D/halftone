@@ -1,0 +1,20 @@
+#!/bin/sh
+# about: Top posts today from a subreddit ($HALFTONE_SUBREDDIT, default programming)
+# group: News
+# Reddit's .json endpoint returns an HTML block page to non-browser clients (verified), so this reads https://www.reddit.com/r/<sub>/top/.rss?t=day, which works with a User-Agent.
+sub="${HALFTONE_SUBREDDIT:-programming}"
+echo "title: r/$sub"; echo "every: 600"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+echo "open: https://www.reddit.com/r/$sub/top/?t=day"
+feed() { tr '\n\r\t' '   ' | sed 's/<entry[ >]/\
+&/g' | awk -v n="$1" '
+/^<entry[ >]/ && c<n {
+  t=$0; if(!sub(/.*<title[^>]*>/,"",t)) next; sub(/<\/title>.*/,"",t)
+  l=$0; if(!match(l,/<link[^>]*href="[^"]*"/)) next
+  l=substr(l,RSTART,RLENGTH); sub(/.*href="/,"",l); sub(/"$/,"",l)
+  gsub(/&lt;/,"<",t); gsub(/&gt;/,">",t); gsub(/&quot;/,"\"",t); gsub(/&#39;|&apos;/,"\047",t); gsub(/&amp;/,"\\&",t); gsub(/\|/,"/",t)
+  gsub(/&amp;/,"\\&",l); c++; printf "%s\t%s\n", t, l }'; }
+out=$(curl -sfL -m 8 -A "halftone/1 (terminal dashboard)" "https://www.reddit.com/r/$sub/top/.rss?t=day&limit=12" | feed 12)
+[ -z "$out" ] && { echo "text: r/$sub unreachable or rate limited, retrying later"; exit 0; }
+tab=$(printf '\t')
+printf '%s\n' "$out" | while IFS="$tab" read -r t l; do echo "link: $t | $l"; done

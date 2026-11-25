@@ -1,0 +1,27 @@
+#!/bin/sh
+# about: HTTP status and latency for the sites in ~/.config/halftone/sites.txt
+# group: Dev
+# curl -w '%{http_code} %{time_total}' (https://curl.se/docs/manpage.html#-w). One URL per line, # comments allowed.
+echo "title: Sites"; echo "every: 60"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+f="${XDG_CONFIG_HOME:-$HOME/.config}/halftone/sites.txt"
+if [ ! -f "$f" ]; then
+  mkdir -p "$(dirname "$f")" 2>/dev/null
+  printf '# one URL per line\nhttps://example.com\nhttps://github.com\n' > "$f" 2>/dev/null
+  echo "text: wrote example list to $f, edit it"
+fi
+d=$(mktemp -d); i=0
+for u in $(grep -v '^[[:space:]]*#' "$f" 2>/dev/null | head -12); do
+  i=$((i+1)); echo "$u" > "$d/$i.u"
+  curl -s -o /dev/null -L -m 7 -w '%{http_code} %{time_total}' "$u" > "$d/$i" 2>/dev/null &
+done
+wait
+j=0
+while [ $j -lt $i ]; do
+  j=$((j+1)); u=$(cat "$d/$j.u"); set -- $(cat "$d/$j" 2>/dev/null); code=${1:-000}; ms=$(awk -v s="${2:-0}" 'BEGIN{printf "%d",s*1000}')
+  case "$code" in 2*|3*) t=good;; 000) t=bad;; *) t=bad;; esac
+  [ "$t" = good ] && [ "$ms" -gt 1500 ] && t=warn
+  [ "$code" = 000 ] && v="down" || v="$code · ${ms}ms"
+  echo "row: ${u#*://} | $v | $t"
+done
+rm -rf "$d"

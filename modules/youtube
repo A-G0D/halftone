@@ -1,0 +1,24 @@
+#!/bin/sh
+# about: Latest uploads from YouTube channels ($HALFTONE_YOUTUBE = channel ids, default Fireship)
+# group: News
+# https://www.youtube.com/feeds/videos.xml?channel_id=<UC...> (public Atom feed, verified). Channel id is in the channel page source or youtube.com/account_advanced.
+ids="${HALFTONE_YOUTUBE:-UCsBjURrPoezykLs9EqgamOA}"
+echo "title: YouTube"; echo "every: 900"
+command -v curl >/dev/null || { echo "text: needs curl"; exit 0; }
+feed() { tr '\n\r\t' '   ' | sed 's/<entry[ >]/\
+&/g' | awk -v n="$1" '
+/^<entry[ >]/ && c<n {
+  t=$0; if(!sub(/.*<title[^>]*>/,"",t)) next; sub(/<\/title>.*/,"",t)
+  l=$0; if(!match(l,/<link[^>]*href="[^"]*"/)) next
+  l=substr(l,RSTART,RLENGTH); sub(/.*href="/,"",l); sub(/"$/,"",l)
+  gsub(/&lt;/,"<",t); gsub(/&gt;/,">",t); gsub(/&quot;/,"\"",t); gsub(/&#39;|&apos;/,"\047",t); gsub(/&amp;/,"\\&",t); gsub(/\|/,"/",t)
+  gsub(/&amp;/,"\\&",l); c++; printf "%s\t%s\n", t, l }'; }
+tab=$(printf '\t'); n=0
+for id in $ids; do
+  x=$(curl -sf -m 8 "https://www.youtube.com/feeds/videos.xml?channel_id=$id") || { echo "text: channel $id not found"; continue; }
+  name=$(printf %s "$x" | sed -n 's/^ *<title>\([^<]*\)<\/title>.*/\1/p' | head -1)
+  echo "head: ${name:-$id}"
+  printf %s "$x" | feed 5 | while IFS="$tab" read -r t l; do echo "link: $t | $l"; done
+  n=$((n+1)); [ $n -ge 3 ] && break
+done
+exit 0

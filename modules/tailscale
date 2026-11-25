@@ -1,0 +1,13 @@
+#!/bin/sh
+# about: Tailscale peers, online or offline
+# group: System
+# `tailscale status` plain output: "<ip> <host> <owner> <os> <active|idle|offline|->" (https://tailscale.com/kb/1080/cli#status)
+echo "title: Tailscale"; echo "every: 30"
+ts=$(command -v tailscale || ls /Applications/Tailscale.app/Contents/MacOS/Tailscale 2>/dev/null)
+[ -z "$ts" ] && { echo "text: Tailscale not installed"; exit 0; }
+out=$("$ts" status 2>&1) || { echo "text: Tailscale is stopped or logged out: tailscale up"; exit 0; }
+echo "open: https://login.tailscale.com/admin/machines"
+printf %s "$out" | awk '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ {
+  off = ($0 ~ /offline/); if(off) o++; else on++
+  rows = rows sprintf("row: %s | %s | %s\n", $2, off ? "offline" : "online", off ? "muted" : "good")
+} END { printf "big: %d online, %d offline\n%s", on, o, rows }' | head -14
